@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>雪糕店 - 關係子句練習</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 Tone.js 用於合成互動音效 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- 載入圓潤易讀的字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            font-family: 'Fredoka', 'Noto Sans TC', "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+            background: linear-gradient(135deg, #FFF5F7 0%, #FFFBEB 50%, #EFF6FF 100%);
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            overscroll-behavior: none;
+        }
+
+        /* 平板配料區流暢觸控捲動條 */
+        .tablet-scroll {
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: #FDBA74 transparent;
+        }
+        .tablet-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .tablet-scroll::-webkit-scrollbar-thumb {
+            background-color: #FDBA74;
+            border-radius: 9999px;
+        }
+
+        /* 雪糕店遮陽篷條紋 */
+        .awning-stripes {
+            background: repeating-linear-gradient(
+                90deg,
+                #FF4D6D 0px,
+                #FF4D6D 36px,
+                #FFFFFF 36px,
+                #FFFFFF 72px
+            );
+        }
+
+        /* 彈跳與浮動動畫 */
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-6px); }
+        }
+        .animate-float {
+            animation: floatSlow 2.6s ease-in-out infinite;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.6); opacity: 0; }
+            75% { transform: scale(1.06); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop-in {
+            animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes shakeGentle {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            50% { transform: translateX(8px); }
+            75% { transform: translateX(-5px); }
+        }
+        .animate-shake {
+            animation: shakeGentle 0.4s ease-in-out;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+            50% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 1.8s infinite;
+        }
+
+        /* 3D 糖果立體按鈕效果 */
+        .candy-btn {
+            touch-action: manipulation;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .candy-btn:active:not(:disabled) {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18) !important;
+        }
+    </style>
+</head>
+<body class="min-h-[100dvh] md:h-[100dvh] md:overflow-hidden flex flex-col text-slate-800 overflow-x-hidden">
+
+    <!-- 頂部控制列（極簡圖示化設計，方便治療師及學生操作） -->
+    <header class="shrink-0 w-full bg-white/90 backdrop-blur-md border-b-4 border-pink-200 px-3 py-2 sm:px-5 flex flex-wrap items-center justify-between gap-2 z-30 shadow-sm">
+        <!-- 品牌標誌 -->
+        <div class="flex items-center gap-2">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white text-2xl shadow-md">
+                🍦
+            </div>
+            <span class="font-black text-lg sm:text-xl tracking-wide text-rose-600 hidden sm:inline">開心雪糕店</span>
+        </div>
+
+        <!-- 模式與難度切換區 -->
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- 不限時 / 限時 切換 -->
+            <div class="bg-slate-100 p-1 rounded-2xl flex items-center border-2 border-slate-200">
+                <button id="btn-mode-untimed" onclick="setGameMode('untimed')" class="px-3 py-1.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-1.5 bg-emerald-500 text-white shadow transition">
+                    <span>∞</span><span>不限時</span>
+                </button>
+                <button id="btn-mode-timed" onclick="setGameMode('timed')" class="px-3 py-1.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition">
+                    <span>⏱️</span><span>限時</span>
+                </button>
+            </div>
+
+            <!-- 難度階梯（供治療師按學生進度即時調整） -->
+            <div class="bg-amber-50 p-1 rounded-2xl flex items-center border-2 border-amber-200">
+                <button onclick="setDifficulty(1)" id="diff-1" class="px-2.5 py-1 rounded-xl font-bold text-xs sm:text-sm bg-amber-400 text-amber-950 shadow-sm transition">★ 基礎</button>
+                <button onclick="setDifficulty(2)" id="diff-2" class="px-2.5 py-1 rounded-xl font-bold text-xs sm:text-sm text-amber-800 hover:bg-amber-100 transition">★★ 進階</button>
+                <button onclick="setDifficulty(3)" id="diff-3" class="px-2.5 py-1 rounded-xl font-bold text-xs sm:text-sm text-amber-800 hover:bg-amber-100 transition">★★★ 挑戰</button>
+            </div>
+        </div>
+
+        <!-- 分數、計時器與音效按鈕 -->
+        <div class="flex items-center gap-2">
+            <!-- 限時倒數顯示器 -->
+            <div id="timer-badge" class="hidden bg-rose-100 border-2 border-rose-300 text-rose-700 px-3 py-1.5 rounded-2xl font-black text-base sm:text-lg flex items-center gap-1">
+                <span>⏱️</span>
+                <span id="timer-display">60</span>s
+            </div>
+
+            <!-- 星星得分 -->
+            <div class="bg-yellow-100 border-2 border-yellow-300 text-yellow-800 px-3 py-1.5 rounded-2xl font-black text-base sm:text-lg flex items-center gap-1">
+                <span>⭐</span>
+                <span id="score-display">0</span>
+            </div>
+
+            <!-- 音效開關 -->
+            <button id="btn-sound" onclick="toggleSound()" title="開關音效" class="w-10 h-10 rounded-2xl bg-sky-100 hover:bg-sky-200 border-2 border-sky-300 text-sky-700 flex items-center justify-center text-lg transition">
+                🔊
+            </button>
+        </div>
+    </header>
+
+    <!-- 限時模式結束橫幅 (隱藏狀態) -->
+    <div id="timeup-overlay" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl border-4 border-amber-300 p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl animate-pop-in">
+            <div class="text-6xl mb-3">🏆</div>
+            <h2 class="text-2xl font-black text-slate-800 mb-2">時間到！好叻女！</h2>
+            <div class="bg-yellow-50 border-2 border-yellow-200 rounded-2xl py-4 px-6 my-4">
+                <div class="text-sm font-bold text-yellow-700 mb-1">完成雪糕數量</div>
+                <div class="text-4xl font-black text-amber-500">⭐ <span id="final-score">0</span></div>
+            </div>
+            <button onclick="restartTimedGame()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xl shadow-lg candy-btn">
+                🔄 再玩一次
+            </button>
+        </div>
+    </div>
+
+    <!-- 主遊戲舞台（自動適應平板直向及橫向尺寸） -->
+    <main class="flex-1 min-h-0 max-w-7xl w-full mx-auto p-2.5 sm:p-4 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch md:overflow-hidden">
+
+        <!-- 左側面板：客人櫃檯與圖像點餐泡泡 -->
+        <section class="md:col-span-5 min-h-0 bg-white rounded-3xl border-4 border-rose-200 shadow-xl overflow-hidden flex flex-col justify-between relative">
+            <!-- 可愛條紋遮陽篷 -->
+            <div class="shrink-0 h-6 sm:h-7 w-full awning-stripes border-b-4 border-rose-300 shadow-sm"></div>
+
+            <!-- 客人互動區 -->
+            <div class="flex-1 min-h-0 p-3 sm:p-4 flex flex-col items-center justify-between bg-gradient-to-b from-sky-50/70 to-amber-50/40 overflow-y-auto tablet-scroll">
+                
+                <!-- 客人點餐圖像氣泡 (純圖像指示，減少文字負擔) -->
+                <div id="order-bubble" class="shrink-0 w-full bg-white rounded-3xl border-4 border-sky-300 p-2.5 sm:p-3.5 shadow-lg relative animate-pop-in">
+                    <!-- 治療師專用：句式結構提示眼睛按鈕 (預設隱藏文字) -->
+                    <button onclick="togglePromptHint()" title="治療師句式提示" class="absolute top-2 right-2 w-10 h-10 rounded-xl bg-indigo-50 hover:bg-indigo-100 border-2 border-indigo-200 text-indigo-600 flex items-center justify-center text-base transition z-10">
+                        👁️
+                    </button>
+
+                    <!-- 純圖像目標雪糕展示 -->
+                    <div class="flex items-center justify-center gap-2.5 sm:gap-3.5">
+                        <!-- 完整雪糕成品圖 -->
+                        <div id="target-icecream-svg" class="w-28 h-36 lg:w-36 lg:h-44 flex items-center justify-center shrink-0">
+                            <!-- 動態渲染目標雪糕 SVG -->
+                        </div>
+
+                        <!-- 拆解圖像提示卡 (方便學生看清口味球與配料數量) -->
+                        <div id="target-breakdown-icons" class="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-2xl border-2 border-slate-200">
+                            <!-- 動態渲染圖示拆解 -->
+                        </div>
+                    </div>
+
+                    <!-- 可切換顯示的目標關係子句提示 (供治療師核對或作視覺鷹架) -->
+                    <div id="therapist-prompt-box" class="hidden mt-3 pt-2.5 border-t-2 border-dashed border-indigo-200 text-center">
+                        <div id="target-sentence-html" class="text-base sm:text-lg font-black leading-relaxed"></div>
+                    </div>
+
+                    <!-- 氣泡下方小三角 -->
+                    <div class="w-5 h-5 bg-white border-r-4 border-b-4 border-sky-300 transform rotate-45 mx-auto -mb-6 mt-2"></div>
+                </div>
+
+                <!-- 客人角色舞台 -->
+                <div class="my-2 flex flex-col items-center justify-center relative shrink-0">
+                    <div id="customer-feedback-emoji" class="hidden absolute -top-3 -right-5 text-4xl animate-bounce z-10">💖</div>
+                    <div id="customer-avatar" class="w-28 h-28 md:w-32 md:h-32 lg:w-40 lg:h-40 animate-float flex items-center justify-center">
+                        <!-- 動態渲染可愛客人 Emoji -->
+                    </div>
+                </div>
+
+                <!-- 語音關卡按鈕：學生必須先向治療師說出指令，方可解鎖製作區 -->
+                <div class="w-full shrink-0">
+                    <button id="btn-unlock-kitchen" onclick="unlockKitchen()" class="w-full py-3 sm:py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-black text-base sm:text-lg lg:text-xl shadow-[0_6px_0_#047857] candy-btn animate-pulse-glow flex items-center justify-center gap-2">
+                        <span class="text-xl sm:text-2xl">🗣️</span>
+                        <span>講出指令！開始整雪糕</span>
+                    </button>
+
+                    <div id="unlocked-status-bar" class="hidden w-full py-2.5 px-3 rounded-2xl bg-emerald-50 border-2 border-emerald-300 text-emerald-700 font-black text-center text-sm sm:text-base flex items-center justify-center gap-2">
+                        <span>✨</span>
+                        <span>已解鎖！請按客人的圖案製作雪糕</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 右側面板：雪糕製作工作台 -->
+        <section class="md:col-span-7 min-h-0 bg-white rounded-3xl border-4 border-amber-200 shadow-xl p-3 sm:p-4 flex flex-col justify-between gap-2.5 relative overflow-hidden">
+            
+            <!-- 未說出指令前的鎖定遮罩 -->
+            <div id="kitchen-lock-overlay" class="absolute inset-0 bg-slate-900/25 backdrop-blur-[3px] z-20 flex flex-col items-center justify-center p-6 text-center transition-opacity duration-300">
+                <div class="bg-white/95 border-4 border-emerald-400 rounded-3xl p-5 sm:p-6 shadow-2xl max-w-xs animate-bounce">
+                    <div class="text-5xl mb-2">🗣️</div>
+                    <div class="font-black text-xl text-slate-800">先向老師說出指令！</div>
+                    <div class="text-sm font-bold text-emerald-600 mt-1">講完再按左邊綠色掣解鎖</div>
+                </div>
+            </div>
+
+            <!-- 上層：即時雪糕製作台 + 重做 / 送出按鈕 -->
+            <div class="shrink-0 bg-gradient-to-r from-amber-50 via-orange-50 to-pink-50 rounded-3xl border-2 border-amber-200 p-2.5 sm:p-3.5 flex items-center justify-between gap-2.5">
+                <!-- 重做按鈕 -->
+                <button onclick="resetCurrentCone()" title="清空重做" class="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-rose-100 hover:bg-rose-200 border-b-4 border-rose-300 text-rose-600 flex flex-col items-center justify-center candy-btn shrink-0">
+                    <span class="text-2xl">🗑️</span>
+                    <span class="text-xs font-black">重做</span>
+                </button>
+
+                <!-- 學生正在製作的雪糕預覽 -->
+                <div class="flex-1 flex flex-col items-center justify-center">
+                    <div id="player-icecream-svg" class="w-28 h-32 lg:w-36 lg:h-40 flex items-center justify-center transition-transform">
+                        <!-- 動態渲染玩家製作中的雪糕 -->
+                    </div>
+                    <!-- 錯誤時的輕微視覺提示條 -->
+                    <div id="mismatch-banner" class="hidden mt-1 px-3 py-1 rounded-full bg-rose-500 text-white text-xs sm:text-sm font-black animate-bounce">
+                        再睇真啲客人張圖呀！
+                    </div>
+                </div>
+
+                <!-- 完成送出按鈕 -->
+                <button onclick="serveIceCream()" class="w-20 h-16 sm:w-24 sm:h-20 rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-500 hover:to-emerald-700 border-b-4 border-emerald-800 text-white flex flex-col items-center justify-center shadow-lg candy-btn shrink-0">
+                    <span class="text-2xl sm:text-3xl">🔔</span>
+                    <span class="text-xs sm:text-sm font-black">送出</span>
+                </button>
+            </div>
+
+            <!-- 中層：選擇雪糕口味（單球設計，共6款口味含薄荷朱古力扭紋） -->
+            <div class="shrink-0">
+                <div class="flex items-center justify-between mb-1.5 px-1">
+                    <span class="font-black text-sm sm:text-base text-slate-700 flex items-center gap-1.5">
+                        <span>🍨</span><span>雪糕口味（揀 1 款）</span>
+                    </span>
+                    <span id="scoop-status-pill" class="text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">未揀口味</span>
+                </div>
+                <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    <!-- 士多啤梨 (粉紅色) -->
+                    <button id="flavor-btn-strawberry" onclick="selectScoop('strawberry')" class="candy-btn bg-pink-50 hover:bg-pink-100 border-2 border-pink-300 border-b-4 rounded-2xl p-2 flex flex-col items-center gap-1 transition">
+                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow-inner border-2 border-white" style="background-color: #FF6B9D;"></div>
+                        <span class="font-black text-xs text-pink-700">士多啤梨</span>
+                    </button>
+
+                    <!-- 朱古力 (咖啡色) -->
+                    <button id="flavor-btn-chocolate" onclick="selectScoop('chocolate')" class="candy-btn bg-amber-50 hover:bg-amber-100 border-2 border-amber-400 border-b-4 rounded-2xl p-2 flex flex-col items-center gap-1 transition">
+                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow-inner border-2 border-white" style="background-color: #6B3E26;"></div>
+                        <span class="font-black text-xs text-amber-900">朱古力</span>
+                    </button>
+
+                    <!-- 雲呢拿 (白色) -->
+                    <button id="flavor-btn-vanilla" onclick="selectScoop('vanilla')" class="candy-btn bg-stone-50 hover:bg-stone-100 border-2 border-stone-300 border-b-4 rounded-2xl p-2 flex flex-col items-center gap-1 transition">
+                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow-inner border-2 border-stone-200" style="background-color: #FFFDF7;"></div>
+                        <span class="font-black text-xs text-stone-700">雲呢拿</span>
+                    </button>
+
+                    <!-- 薄荷 (薄荷綠色) -->
+                    <button id="flavor-btn-mint" onclick="selectScoop('mint')" class="candy-btn bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-300 border-b-4 rounded-2xl p-2 flex flex-col items-center gap-1 transition">
+                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow-inner border-2 border-white" style="background-color: #4ADE80;"></div>
+                        <span class="font-black text-xs text-emerald-700">薄荷</span>
+                    </button>
+
+                    <!-- 芒果 (橙色) -->
+                    <button id="flavor-btn-mango" onclick="selectScoop('mango')" class="candy-btn bg-orange-50 hover:bg-orange-100 border-2 border-orange-300 border-b-4 rounded-2xl p-2 flex flex-col items-center gap-1 transition">
+                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow-inner border-2 border-white" style="background-color: #FB923C;"></div>
+                        <span class="font-black text-xs text-orange-700">芒果</span>
+                    </button>
+
+                    <!-- 薄荷朱古力 (薄荷綠 twirl with 咖啡色朱古力) -->
+                    <button id="flavor-btn-mintChoc" onclick="selectScoop('mintChoc')" class="candy-btn bg-teal-50 hover:bg-teal-100 border-2 border-teal-400 border-b-4 rounded-2xl p-2 flex flex-col items-center gap-1 transition">
+                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow-inner border-2 border-white overflow-hidden" style="background: repeating-linear-gradient(-45deg, #4ADE80 0px, #4ADE80 6px, #6B3E26 6px, #6B3E26 12px);"></div>
+                        <span class="font-black text-xs text-teal-900">薄荷朱古力</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 下層：11款配料工作區（自動填滿平板剩餘高度並支援觸控捲動） -->
+            <div class="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto pr-1 tablet-scroll">
+                <div class="flex items-center justify-between px-1 shrink-0">
+                    <span class="font-black text-sm sm:text-base text-slate-700 flex items-center gap-1.5">
+                        <span>✨</span><span>上面配料（共11款）</span>
+                    </span>
+                    <span class="text-xs font-bold text-slate-400">再按一次已選按鈕可取消</span>
+                </div>
+
+                <!-- 第一組：可選「少少」或「多啲」的4款配料 -->
+                <div id="amount-toppings-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <!-- 由 JS 動態渲染：Sprinkles、朱古力醬、士多啤梨醬、花生碎 -->
+                </div>
+
+                <!-- 第二組：可選數量（最多2）的2款配料 -->
+                <div id="count2-toppings-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <!-- 由 JS 動態渲染：曲奇餅 (1-2)、朱古力 (1-2) -->
+                </div>
+
+                <!-- 第三組：可選數量（最多5）的5款配料 -->
+                <div id="count5-toppings-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <!-- 由 JS 動態渲染：小熊軟糖 (1-5)、棉花糖 (1-5)、M&Ms (1-5)、藍莓 (1-5)、士多啤梨 (1-5) -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // ==========================================
+        // 1. 遊戲資料庫：6款口味、11款配料、17位顧客與預設練習題庫
+        // ==========================================
+        const FLAVORS = {
+            strawberry: { name: '士多啤梨', color: '#FF6B9D', stroke: '#DB2777', isTwirl: false },
+            chocolate:  { name: '朱古力',   color: '#6B3E26', stroke: '#451A03', isTwirl: false },
+            vanilla:    { name: '雲呢拿',   color: '#FFFDF7', stroke: '#D6D3D1', isTwirl: false },
+            mint:       { name: '薄荷',     color: '#4ADE80', stroke: '#15803D', isTwirl: false },
+            mango:      { name: '芒果',     color: '#FB923C', stroke: '#C2410C', isTwirl: false },
+            mintChoc:   { name: '薄荷朱古力', color: '#4ADE80', stroke: '#115E59', isTwirl: true }
+        };
+        const FLAVOR_KEYS = Object.keys(FLAVORS);
+
+        const TOPPINGS = {
+            // 可選「少少」或「多啲」的4款配料
+            sprinkles:   { name: 'Sprinkles',  icon: '🎉', type: 'amount', bg: 'bg-pink-50',   border: 'border-pink-200',   text: 'text-pink-800' },
+            chocSauce:   { name: '朱古力醬',   icon: '🤎', type: 'amount', bg: 'bg-amber-50',  border: 'border-amber-300',  text: 'text-amber-900' },
+            strawSauce:  { name: '士多啤梨醬', icon: '🍓', type: 'amount', bg: 'bg-rose-50',   border: 'border-rose-200',   text: 'text-rose-800' },
+            peanuts:     { name: '花生碎',     icon: '🥜', type: 'amount', bg: 'bg-yellow-50', border: 'border-yellow-300', text: 'text-yellow-900' },
+
+            // 可選數量（最多2塊）的2款配料
+            cookie:      { name: '曲奇餅',     icon: '🍪', type: 'count', max: 2, unit: '塊', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-900' },
+            chocolate:   { name: '朱古力',     icon: '🍫', type: 'count', max: 2, unit: '塊', bg: 'bg-stone-100', border: 'border-stone-300',  text: 'text-stone-800' },
+
+            // 可選數量（最多5粒）的5款配料
+            gummyBears:  { name: '小熊軟糖',   icon: '🧸', type: 'count', max: 5, unit: '粒', bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-800' },
+            marshmallows:{ name: '棉花糖',     icon: '☁️', type: 'count', max: 5, unit: '粒', bg: 'bg-sky-50',    border: 'border-sky-200',    text: 'text-sky-800' },
+            mms:         { name: 'M&Ms',       icon: '🔴', type: 'count', max: 5, unit: '粒', bg: 'bg-red-50',    border: 'border-red-200',    text: 'text-red-800' },
+            blueberry:   { name: '藍莓',       icon: '🫐', type: 'count', max: 5, unit: '粒', bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-800' },
+            strawberry:  { name: '士多啤梨',   icon: '🍓', type: 'count', max: 5, unit: '粒', bg: 'bg-rose-50',   border: 'border-rose-300',   text: 'text-rose-800' }
+        };
+
+        const AMOUNT_KEYS = ['sprinkles', 'chocSauce', 'strawSauce', 'peanuts'];
+        const COUNT2_KEYS = ['cookie', 'chocolate'];
+        const COUNT5_KEYS = ['gummyBears', 'marshmallows', 'mms', 'blueberry', 'strawberry'];
+        const ALL_TOPPING_KEYS = [...AMOUNT_KEYS, ...COUNT2_KEYS, ...COUNT5_KEYS];
+
+        const NUM_WORDS = { 1: '一', 2: '兩', 3: '三', 4: '四', 5: '五' };
+
+        const CUSTOMER_EMOJIS = [
+            '👨‍🎨', '🎅', '👨', '👩‍🦰', '👧', '👦', '👩‍🦳', '👴',
+            '🐒', '🐖', '🐶', '🐇', '🪿', '🦜', '🦚', '🐓', '🦓'
+        ];
+
+        const CUSTOMER_RING_COLORS = [
+            'from-pink-100 to-rose-200 border-rose-300',
+            'from-sky-100 to-blue-200 border-sky-300',
+            'from-amber-100 to-yellow-200 border-amber-300',
+            'from-emerald-100 to-teal-200 border-emerald-300',
+            'from-purple-100 to-indigo-200 border-purple-300'
+        ];
+
+        // 預設練習階梯題目（確保課堂初期循序漸進）
+        const PRESET_ORDERS = {
+            1: [
+                { scoop: 'vanilla',  toppings: { marshmallows: 4 } },
+                { scoop: 'mintChoc', toppings: { mms: 3 } },
+                { scoop: 'strawberry', toppings: { cookie: 1 } },
+                { scoop: 'mango',    toppings: { sprinkles: 'lots' } }
+            ],
+            2: [
+                { scoop: 'mintChoc',  toppings: { cookie: 2 } },
+                { scoop: 'chocolate', toppings: { gummyBears: 5 } },
+                { scoop: 'vanilla',   toppings: { strawSauce: 'little' } },
+                { scoop: 'mint',      toppings: { blueberry: 4 } }
+            ],
+            3: [
+                { scoop: 'mango',      toppings: { chocolate: 1, strawSauce: 'lots' } },
+                { scoop: 'mintChoc',   toppings: { mms: 4, marshmallows: 2 } },
+                { scoop: 'vanilla',    toppings: { cookie: 2, chocSauce: 'little' } },
+                { scoop: 'strawberry', toppings: { strawberry: 3, peanuts: 'lots' } }
+            ]
+        };
+
+        // ==========================================
+        // 2. 遊戲核心狀態
+        // ==========================================
+        const gameState = {
+            mode: 'untimed',        // 'untimed' | 'timed'
+            difficulty: 1,          // 1 | 2 | 3
+            score: 0,
+            timeLeft: 60,
+            timerInterval: null,
+            soundEnabled: true,
+            isLocked: true,
+            orderCount: 0,
+            targetOrder: null,
+            playerScoop: null,
+            playerToppings: {},
+            customerQueue: [],
+            currentCustomer: '👧',
+            customerColorIdx: 0
+        };
+
+        // ==========================================
+        // 3. Tone.js 互動音效引擎（支援平板 Chrome/Edge 觸控自動解鎖音效）
+        // ==========================================
+        let synth = null;
+
+        function unlockTabletAudio() {
+            try {
+                if (typeof Tone !== 'undefined' && Tone.context && Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+            } catch (e) {}
+        }
+        document.addEventListener('pointerdown', unlockTabletAudio, { passive: true });
+        document.addEventListener('touchstart', unlockTabletAudio, { passive: true });
+
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            try {
+                if (typeof Tone === 'undefined') return;
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                if (!synth) {
+                    synth = new Tone.PolySynth(Tone.Synth, {
+                        oscillator: { type: 'triangle' },
+                        envelope: { attack: 0.01, decay: 0.15, sustain: 0.05, release: 0.25 }
+                    }).toDestination();
+                    synth.volume.value = -6;
+                }
+
+                const now = Tone.now();
+                if (type === 'unlock') {
+                    synth.triggerAttackRelease(['C5', 'E5', 'G5'], '16n', now);
+                } else if (type === 'scoop') {
+                    synth.triggerAttackRelease('F5', '16n', now);
+                } else if (type === 'topping') {
+                    synth.triggerAttackRelease('A5', '32n', now);
+                } else if (type === 'clear') {
+                    synth.triggerAttackRelease('D4', '16n', now);
+                } else if (type === 'success') {
+                    synth.triggerAttackRelease('C5', '16n', now);
+                    synth.triggerAttackRelease('E5', '16n', now + 0.09);
+                    synth.triggerAttackRelease('G5', '16n', now + 0.18);
+                    synth.triggerAttackRelease('C6', '8n', now + 0.27);
+                } else if (type === 'error') {
+                    synth.triggerAttackRelease('E4', '16n', now);
+                    synth.triggerAttackRelease('Eb4', '8n', now + 0.12);
+                }
+            } catch (e) {
+                // 忽略瀏覽器未授權音訊前的錯誤
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            const btn = document.getElementById('btn-sound');
+            btn.textContent = gameState.soundEnabled ? '🔊' : '🔇';
+            if (gameState.soundEnabled) playSound('topping');
+        }
+
+        // ==========================================
+        // 4. 模式切換（不限時 / 60秒限時）與計時器
+        // ==========================================
+        function setGameMode(mode) {
+            gameState.mode = mode;
+            const btnUntimed = document.getElementById('btn-mode-untimed');
+            const btnTimed = document.getElementById('btn-mode-timed');
+            const timerBadge = document.getElementById('timer-badge');
+
+            if (mode === 'untimed') {
+                stopTimer();
+                btnUntimed.className = 'px-3 py-1.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-1.5 bg-emerald-500 text-white shadow transition';
+                btnTimed.className = 'px-3 py-1.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition';
+                timerBadge.classList.add('hidden');
+            } else {
+                btnTimed.className = 'px-3 py-1.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-1.5 bg-rose-500 text-white shadow transition';
+                btnUntimed.className = 'px-3 py-1.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition';
+                timerBadge.classList.remove('hidden');
+                restartTimedGame();
+            }
+        }
+
+        function startTimer() {
+            stopTimer();
+            gameState.timeLeft = 60;
+            document.getElementById('timer-display').textContent = gameState.timeLeft;
+            gameState.timerInterval = setInterval(() => {
+                gameState.timeLeft--;
+                document.getElementById('timer-display').textContent = gameState.timeLeft;
+                if (gameState.timeLeft <= 0) {
+                    stopTimer();
+                    document.getElementById('final-score').textContent = gameState.score;
+                    document.getElementById('timeup-overlay').classList.remove('hidden');
+                    playSound('success');
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
+            }
+        }
+
+        function restartTimedGame() {
+            document.getElementById('timeup-overlay').classList.add('hidden');
+            gameState.score = 0;
+            gameState.orderCount = 0;
+            document.getElementById('score-display').textContent = '0';
+            generateNextOrder();
+            if (gameState.mode === 'timed') {
+                startTimer();
+            }
+        }
+
+        // ==========================================
+        // 5. 語音關卡鎖定／解鎖與治療師提示切換
+        // ==========================================
+        function lockKitchen() {
+            gameState.isLocked = true;
+            document.getElementById('kitchen-lock-overlay').classList.remove('hidden');
+            document.getElementById('btn-unlock-kitchen').classList.remove('hidden');
+            document.getElementById('unlocked-status-bar').classList.add('hidden');
+        }
+
+        function unlockKitchen() {
+            gameState.isLocked = false;
+            playSound('unlock');
+            document.getElementById('kitchen-lock-overlay').classList.add('hidden');
+            document.getElementById('btn-unlock-kitchen').classList.add('hidden');
+            document.getElementById('unlocked-status-bar').classList.remove('hidden');
+        }
+
+        function togglePromptHint() {
+            const box = document.getElementById('therapist-prompt-box');
+            box.classList.toggle('hidden');
+        }
+
+        // ==========================================
+        // 6. 動態渲染11款配料按鈕與按鈕高亮更新
+        // ==========================================
+        function renderToppingControls() {
+            // 1. 渲染 4 款「少少 / 多啲」配料
+            const amountGrid = document.getElementById('amount-toppings-grid');
+            amountGrid.innerHTML = AMOUNT_KEYS.map(key => {
+                const t = TOPPINGS[key];
+                return `
+                    <div class="${t.bg} border-2 ${t.border} rounded-2xl p-2 flex flex-col justify-between gap-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-lg">${t.icon}</span>
+                            <span class="font-black text-xs ${t.text} truncate">${t.name}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button id="top-btn-${key}-little" onclick="toggleTopping('${key}', 'little')" class="candy-btn py-1.5 rounded-xl bg-white border border-slate-300 font-black text-xs text-slate-700 hover:bg-slate-50 transition">
+                                少少
+                            </button>
+                            <button id="top-btn-${key}-lots" onclick="toggleTopping('${key}', 'lots')" class="candy-btn py-1.5 rounded-xl bg-white border border-slate-300 font-black text-xs text-slate-700 hover:bg-slate-50 transition">
+                                多啲
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // 2. 渲染 2 款「最多2塊」配料（曲奇餅、朱古力）
+            const count2Grid = document.getElementById('count2-toppings-grid');
+            count2Grid.innerHTML = COUNT2_KEYS.map(key => {
+                const t = TOPPINGS[key];
+                const btns = [1, 2].map(num => `
+                    <button id="top-btn-${key}-${num}" onclick="toggleTopping('${key}', ${num})" class="candy-btn flex-1 py-2 rounded-xl bg-white border border-slate-300 font-black text-xs sm:text-sm text-slate-700 hover:bg-slate-50 transition">
+                        ${num}${t.unit}
+                    </button>
+                `).join('');
+                return `
+                    <div class="${t.bg} border-2 ${t.border} rounded-2xl p-2 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <span class="text-xl">${t.icon}</span>
+                            <span class="font-black text-xs sm:text-sm ${t.text}">${t.name}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-1 max-w-[135px]">
+                            ${btns}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // 3. 渲染 5 款「最多5粒」配料（小熊軟糖、棉花糖、M&Ms、藍莓、士多啤梨）
+            const count5Grid = document.getElementById('count5-toppings-grid');
+            count5Grid.innerHTML = COUNT5_KEYS.map(key => {
+                const t = TOPPINGS[key];
+                const btns = [1, 2, 3, 4, 5].map(num => `
+                    <button id="top-btn-${key}-${num}" onclick="toggleTopping('${key}', ${num})" class="candy-btn flex-1 py-1.5 rounded-lg bg-white border border-slate-300 font-black text-xs text-slate-700 hover:bg-slate-50 transition">
+                        ${num}
+                    </button>
+                `).join('');
+                return `
+                    <div class="${t.bg} border-2 ${t.border} rounded-2xl p-2 flex items-center justify-between gap-1.5">
+                        <div class="flex items-center gap-1 shrink-0">
+                            <span class="text-lg">${t.icon}</span>
+                            <span class="font-black text-xs ${t.text}">${t.name}</span>
+                        </div>
+                        <div class="flex items-center gap-1 flex-1 max-w-[175px]">
+                            ${btns}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateControlHighlights() {
+            // 更新雪糕口味按鈕選中狀態
+            FLAVOR_KEYS.forEach(key => {
+                const btn = document.getElementById(`flavor-btn-${key}`);
+                if (!btn) return;
+                if (gameState.playerScoop === key) {
+                    btn.classList.add('ring-4', 'ring-emerald-400', 'scale-[1.03]');
+                } else {
+                    btn.classList.remove('ring-4', 'ring-emerald-400', 'scale-[1.03]');
+                }
+            });
+
+            const pill = document.getElementById('scoop-status-pill');
+            if (pill) {
+                if (gameState.playerScoop) {
+                    pill.textContent = `已揀：${FLAVORS[gameState.playerScoop].name}`;
+                    pill.className = 'text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+                } else {
+                    pill.textContent = '未揀口味';
+                    pill.className = 'text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800';
+                }
+            }
+
+            // 更新 11 款配料按鈕選中狀態
+            ALL_TOPPING_KEYS.forEach(tKey => {
+                const t = TOPPINGS[tKey];
+                const currentVal = gameState.playerToppings[tKey];
+
+                if (t.type === 'amount') {
+                    ['little', 'lots'].forEach(amt => {
+                        const btn = document.getElementById(`top-btn-${tKey}-${amt}`);
+                        if (!btn) return;
+                        if (currentVal === amt) {
+                            btn.className = 'candy-btn py-1.5 rounded-xl bg-emerald-500 border border-emerald-600 font-black text-xs text-white shadow-sm transition';
+                        } else {
+                            btn.className = 'candy-btn py-1.5 rounded-xl bg-white border border-slate-300 font-black text-xs text-slate-700 hover:bg-slate-50 transition';
+                        }
+                    });
+                } else {
+                    for (let n = 1; n <= t.max; n++) {
+                        const btn = document.getElementById(`top-btn-${tKey}-${n}`);
+                        if (!btn) return;
+                        const label = t.max === 2 ? `${n}${t.unit}` : `${n}`;
+                        const padClass = t.max === 2 ? 'py-2 rounded-xl text-xs sm:text-sm' : 'py-1.5 rounded-lg text-xs';
+                        if (currentVal === n) {
+                            btn.className = `candy-btn flex-1 ${padClass} bg-emerald-500 border border-emerald-600 font-black text-white shadow-sm transition`;
+                        } else {
+                            btn.className = `candy-btn flex-1 ${padClass} bg-white border border-slate-300 font-black text-slate-700 hover:bg-slate-50 transition`;
+                        }
+                        btn.textContent = label;
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        // 7. 學生製作互動操作
+        // ==========================================
+        function selectScoop(flavorKey) {
+            if (gameState.isLocked) return;
+            gameState.playerScoop = flavorKey;
+            playSound('scoop');
+            hideMismatchBanner();
+            updateControlHighlights();
+            renderPlayerIceCream();
+        }
+
+        function toggleTopping(toppingKey, value) {
+            if (gameState.isLocked) return;
+            if (gameState.playerToppings[toppingKey] === value) {
+                delete gameState.playerToppings[toppingKey];
+                playSound('clear');
+            } else {
+                gameState.playerToppings[toppingKey] = value;
+                playSound('topping');
+            }
+            hideMismatchBanner();
+            updateControlHighlights();
+            renderPlayerIceCream();
+        }
+
+        function resetCurrentCone() {
+            if (gameState.isLocked) return;
+            gameState.playerScoop = null;
+            gameState.playerToppings = {};
+            playSound('clear');
+            hideMismatchBanner();
+            updateControlHighlights();
+            renderPlayerIceCream();
+        }
+
+        function hideMismatchBanner() {
+            const banner = document.getElementById('mismatch-banner');
+            if (banner) banner.classList.add('hidden');
+        }
+
+        // ==========================================
+        // 8. 客人輪換與題目生成
+        // ==========================================
+        function getNextCustomerEmoji() {
+            if (gameState.customerQueue.length === 0) {
+                const shuffled = [...CUSTOMER_EMOJIS];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                gameState.customerQueue = shuffled;
+            }
+            gameState.customerColorIdx = (gameState.customerColorIdx + 1) % CUSTOMER_RING_COLORS.length;
+            return gameState.customerQueue.pop();
+        }
+
+        function pickRandomToppings(count) {
+            const shuffledKeys = [...ALL_TOPPING_KEYS].sort(() => Math.random() - 0.5);
+            const selected = shuffledKeys.slice(0, count);
+            const result = {};
+            selected.forEach(k => {
+                const t = TOPPINGS[k];
+                if (t.type === 'amount') {
+                    result[k] = Math.random() < 0.5 ? 'little' : 'lots';
+                } else {
+                    result[k] = Math.floor(Math.random() * t.max) + 1;
+                }
+            });
+            return result;
+        }
+
+        function generateNextOrder() {
+            const diff = gameState.difficulty;
+            const presets = PRESET_ORDERS[diff] || PRESET_ORDERS[1];
+            let nextOrder;
+
+            if (gameState.orderCount < presets.length) {
+                const p = presets[gameState.orderCount];
+                nextOrder = {
+                    scoop: p.scoop,
+                    toppings: { ...p.toppings }
+                };
+            } else {
+                const randomScoop = FLAVOR_KEYS[Math.floor(Math.random() * FLAVOR_KEYS.length)];
+                const toppingCount = diff === 3 ? 2 : 1;
+                nextOrder = {
+                    scoop: randomScoop,
+                    toppings: pickRandomToppings(toppingCount)
+                };
+            }
+
+            gameState.orderCount++;
+            gameState.targetOrder = nextOrder;
+            gameState.currentCustomer = getNextCustomerEmoji();
+
+            // 重置玩家工作台並重新鎖定（要求學生先向治療師講出關係子句）
+            gameState.playerScoop = null;
+            gameState.playerToppings = {};
+            hideMismatchBanner();
+            lockKitchen();
+            updateControlHighlights();
+            renderCustomerAndBubble();
+            renderPlayerIceCream();
+        }
+
+        // ==========================================
+        // 9. 渲染客人、圖像點餐泡泡與關係子句提示
+        // ==========================================
+        function buildSentenceHTML(order) {
+            const scoopName = FLAVORS[order.scoop].name;
+            const toppingParts = Object.entries(order.toppings).map(([key, val]) => {
+                const t = TOPPINGS[key];
+                if (t.type === 'amount') {
+                    const amtText = val === 'little' ? '少少' : '多啲';
+                    return `<span class="text-rose-600 underline decoration-wavy decoration-rose-300">${amtText}${t.name}</span>`;
+                } else {
+                    const numWord = NUM_WORDS[val] || val;
+                    return `<span class="text-rose-600 underline decoration-wavy decoration-rose-300">${numWord}${t.unit}${t.name}</span>`;
+                }
+            });
+
+            const toppingPhrase = toppingParts.join('<span class="text-slate-600">同</span>');
+            return `<span class="text-emerald-700">有</span>${toppingPhrase}<span class="text-emerald-700">喺上面嘅</span><span class="text-indigo-700">${scoopName}雪糕</span>`;
+        }
+
+        function renderCustomerAndBubble() {
+            const order = gameState.targetOrder;
+
+            // 1. 渲染目標雪糕 SVG
+            document.getElementById('target-icecream-svg').innerHTML = renderIceCreamSVG(order.scoop, order.toppings, 'target');
+
+            // 2. 渲染純圖像拆解提示卡
+            const flavor = FLAVORS[order.scoop];
+            const swatchStyle = flavor.isTwirl
+                ? 'background: repeating-linear-gradient(-45deg, #4ADE80 0px, #4ADE80 5px, #6B3E26 5px, #6B3E26 10px);'
+                : `background-color: ${flavor.color};`;
+
+            let breakdownHTML = `
+                <div class="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+                    <span class="w-6 h-6 rounded-full border-2 border-slate-300 shrink-0" style="${swatchStyle}"></span>
+                    <span class="font-black text-xs sm:text-sm text-slate-700">${flavor.name}</span>
+                </div>
+            `;
+
+            Object.entries(order.toppings).forEach(([key, val]) => {
+                const t = TOPPINGS[key];
+                let badgeVisual = '';
+                if (t.type === 'amount') {
+                    badgeVisual = val === 'little'
+                        ? `<span class="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-800 font-black text-xs">少少</span>`
+                        : `<span class="px-1.5 py-0.5 rounded-md bg-amber-200 text-amber-950 font-black text-xs">多啲</span>`;
+                } else {
+                    badgeVisual = `<span class="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-xs sm:text-sm">×${val}</span>`;
+                }
+                breakdownHTML += `
+                    <div class="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+                        <span class="text-lg leading-none">${t.icon}</span>
+                        ${badgeVisual}
+                    </div>
+                `;
+            });
+
+            document.getElementById('target-breakdown-icons').innerHTML = breakdownHTML;
+
+            // 3. 更新治療師隱藏句式提示
+            document.getElementById('target-sentence-html').innerHTML = buildSentenceHTML(order);
+
+            // 4. 渲染顧客 Emoji 舞台
+            const ringClass = CUSTOMER_RING_COLORS[gameState.customerColorIdx];
+            document.getElementById('customer-avatar').innerHTML = `
+                <div class="w-28 h-28 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full bg-gradient-to-b ${ringClass} border-4 shadow-xl flex items-center justify-center text-6xl md:text-7xl lg:text-8xl select-none">
+                    ${gameState.currentCustomer}
+                </div>
+            `;
+
+            // 觸發氣泡彈入動畫
+            const bubble = document.getElementById('order-bubble');
+            bubble.classList.remove('animate-pop-in');
+            void bubble.offsetWidth;
+            bubble.classList.add('animate-pop-in');
+        }
+
+        function renderPlayerIceCream() {
+            document.getElementById('player-icecream-svg').innerHTML = renderIceCreamSVG(
+                gameState.playerScoop,
+                gameState.playerToppings,
+                'player'
+            );
+        }
+
+        // ==========================================
+        // 10. 核對玩家雪糕與顧客要求
+        // ==========================================
+        function serveIceCream() {
+            if (gameState.isLocked) return;
+
+            const target = gameState.targetOrder;
+            const isScoopMatch = gameState.playerScoop === target.scoop;
+
+            const targetKeys = Object.keys(target.toppings);
+            const playerKeys = Object.keys(gameState.playerToppings);
+            const isToppingsMatch =
+                targetKeys.length === playerKeys.length &&
+                targetKeys.every(k => gameState.playerToppings[k] === target.toppings[k]);
+
+            if (isScoopMatch && isToppingsMatch) {
+                playSound('success');
+                gameState.score++;
+                document.getElementById('score-display').textContent = gameState.score;
+
+                const heart = document.getElementById('customer-feedback-emoji');
+                heart.classList.remove('hidden');
+                setTimeout(() => {
+                    heart.classList.add('hidden');
+                    generateNextOrder();
+                }, 900);
+            } else {
+                playSound('error');
+                const banner = document.getElementById('mismatch-banner');
+                const playerBox = document.getElementById('player-icecream-svg');
+                banner.classList.remove('hidden');
+                playerBox.classList.remove('animate-shake');
+                void playerBox.offsetWidth;
+                playerBox.classList.add('animate-shake');
+            }
+        }
+
+        // ==========================================
+        // 11. SVG 雪糕與 11 款配料繪圖引擎
+        // ==========================================
+        function renderIceCreamSVG(scoopKey, toppings, idPrefix) {
+            const patternId = `mint-choc-twirl-${idPrefix}`;
+            const baseY = 122;
+
+            let svg = `
+                <svg viewBox="0 0 180 220" class="w-full h-full drop-shadow-md overflow-visible">
+                    <defs>
+                        <pattern id="${patternId}" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+                            <rect width="20" height="20" fill="#4ADE80" />
+                            <rect x="0" y="0" width="9" height="20" fill="#6B3E26" />
+                        </pattern>
+                    </defs>
+
+                    <!-- 威化雪糕筒 -->
+                    <polygon points="56,126 124,126 90,212" fill="#F59E0B" stroke="#B45309" stroke-width="3.5" stroke-linejoin="round" />
+                    <line x1="68" y1="145" x2="112" y2="145" stroke="#D97706" stroke-width="2.5" />
+                    <line x1="76" y1="168" x2="104" y2="168" stroke="#D97706" stroke-width="2.5" />
+                    <line x1="83" y1="190" x2="97" y2="190" stroke="#D97706" stroke-width="2.5" />
+                    <line x1="76" y1="126" x2="96" y2="192" stroke="#D97706" stroke-width="2" />
+                    <line x1="104" y1="126" x2="84" y2="192" stroke="#D97706" stroke-width="2" />
+            `;
+
+            // 若尚未選擇口味，顯示虛線輪廓提示
+            if (!scoopKey) {
+                svg += `
+                    <circle cx="90" cy="96" r="44" fill="#FFFBEB" fill-opacity="0.6" stroke="#F59E0B" stroke-width="3" stroke-dasharray="6 5" />
+                    <text x="90" y="102" font-size="22" text-anchor="middle" fill="#D97706" font-weight="bold">?</text>
+                </svg>`;
+                return svg;
+            }
+
+            const flavor = FLAVORS[scoopKey];
+            const fillVal = flavor.isTwirl ? `url(#${patternId})` : flavor.color;
+
+            // 單球雪糕主體
+            svg += `
+                <g>
+                    <circle cx="90" cy="94" r="46" fill="${fillVal}" stroke="${flavor.stroke}" stroke-width="3.5" />
+                    <!-- 雪糕球底部波浪裙邊 -->
+                    <path d="M44,104 Q55,122 68,108 Q80,124 90,108 Q100,124 112,108 Q125,122 136,104" fill="${fillVal}" stroke="${flavor.stroke}" stroke-width="3" stroke-linecap="round" />
+                    <!-- 高光反光 -->
+                    <path d="M62,72 Q72,58 88,58" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" opacity="0.65" />
+                </g>
+            `;
+
+            // (A) 朱古力醬 / 士多啤梨醬（淋在雪糕頂部）
+            if (toppings.chocSauce) {
+                const isLots = toppings.chocSauce === 'lots';
+                const dripPath = isLots
+                    ? 'M49,78 Q65,48 90,48 Q115,48 131,78 Q125,98 118,84 Q110,104 102,84 Q90,108 78,84 Q70,102 62,84 Q55,96 49,78 Z'
+                    : 'M58,68 Q74,50 90,50 Q106,50 122,68 Q114,78 106,68 Q98,80 90,68 Q82,80 74,68 Q66,76 58,68 Z';
+                svg += `<path d="${dripPath}" fill="#451A03" opacity="0.92" />`;
+            }
+
+            if (toppings.strawSauce) {
+                const isLots = toppings.strawSauce === 'lots';
+                const dripPath = isLots
+                    ? 'M49,78 Q65,48 90,48 Q115,48 131,78 Q125,98 118,84 Q110,104 102,84 Q90,108 78,84 Q70,102 62,84 Q55,96 49,78 Z'
+                    : 'M58,68 Q74,50 90,50 Q106,50 122,68 Q114,78 106,68 Q98,80 90,68 Q82,80 74,68 Q66,76 58,68 Z';
+                svg += `<path d="${dripPath}" fill="#E11D48" opacity="0.9" />`;
+            }
+
+            // (B) Sprinkles（少少 / 多啲）
+            if (toppings.sprinkles) {
+                const sprinkleColors = ['#EF4444', '#3B82F6', '#FACC15', '#10B981', '#EC4899', '#8B5CF6'];
+                const coords = toppings.sprinkles === 'lots'
+                    ? [
+                        [68,62,25], [82,56,-15], [98,56,40], [112,64,-30],
+                        [60,76,55], [76,72,-45], [90,68,15], [104,72,60], [120,78,-20],
+                        [66,90,-35], [82,86,30], [98,86,-50], [114,90,20], [90,98,10]
+                      ]
+                    : [
+                        [74,64,25], [90,58,-20], [106,64,45],
+                        [78,80,-40], [98,78,30]
+                      ];
+                coords.forEach(([x, y, rot], i) => {
+                    const c = sprinkleColors[i % sprinkleColors.length];
+                    svg += `<rect x="${x - 4}" y="${y - 1.5}" width="8" height="3.2" rx="1.6" fill="${c}" transform="rotate(${rot} ${x} ${y})" />`;
+                });
+            }
+
+            // (C) 花生碎（少少 / 多啲）
+            if (toppings.peanuts) {
+                const coords = toppings.peanuts === 'lots'
+                    ? [
+                        [66,64], [80,56], [95,56], [112,64],
+                        [58,78], [74,72], [90,70], [106,72], [122,78],
+                        [68,90], [84,86], [98,86], [112,90]
+                      ]
+                    : [
+                        [74,64], [90,58], [106,64], [82,78], [98,78]
+                      ];
+                coords.forEach(([x, y], i) => {
+                    svg += `<polygon points="${x},${y-3} ${x+4},${y} ${x+2},${y+4} ${x-3},${y+3}" fill="#FDE047" stroke="#A16207" stroke-width="1.2" transform="rotate(${i * 35} ${x} ${y})" />`;
+                });
+            }
+
+            // (D) 曲奇餅（1 - 2 塊，使用 🍪 Emoji）
+            if (toppings.cookie > 0) {
+                const cookiePos = toppings.cookie === 1
+                    ? [{ x: 64, y: baseY - 46, rot: -18 }]
+                    : [{ x: 58, y: baseY - 44, rot: -22 }, { x: 122, y: baseY - 44, rot: 22 }];
+                cookiePos.forEach(o => {
+                    svg += `
+                        <g transform="translate(${o.x}, ${o.y}) rotate(${o.rot})">
+                            <text x="0" y="9" font-size="26" text-anchor="middle">🍪</text>
+                        </g>
+                    `;
+                });
+            }
+
+            // (E) 朱古力塊（1 - 2 塊）
+            if (toppings.chocolate > 0) {
+                const chocPos = toppings.chocolate === 1
+                    ? [{ x: 112, y: baseY - 62, rot: 18 }]
+                    : [{ x: 66, y: baseY - 62, rot: -18 }, { x: 114, y: baseY - 62, rot: 18 }];
+                chocPos.forEach(c => {
+                    svg += `
+                        <g transform="translate(${c.x}, ${c.y}) rotate(${c.rot})">
+                            <rect x="-11" y="-14" width="22" height="28" rx="3" fill="#451A03" stroke="#270E02" stroke-width="1.5" />
+                            <line x1="0" y1="-14" x2="0" y2="14" stroke="#78350F" stroke-width="1.2" />
+                            <line x1="-11" y1="0" x2="11" y2="0" stroke="#78350F" stroke-width="1.2" />
+                        </g>
+                    `;
+                });
+            }
+
+            // 5粒以下顆粒配料共用座標（1 - 5 粒）
+            const fiveSlotCoords = [
+                { x: 90, y: 54 },
+                { x: 72, y: 62 },
+                { x: 108, y: 62 },
+                { x: 64, y: 80 },
+                { x: 116, y: 80 }
+            ];
+
+            // (F) 小熊軟糖（1 - 5 粒）
+            if (toppings.gummyBears > 0) {
+                const bearColors = ['#F97316', '#EF4444', '#22C55E', '#EAB308', '#EC4899'];
+                for (let i = 0; i < toppings.gummyBears; i++) {
+                    const { x, y } = fiveSlotCoords[i];
+                    const col = bearColors[i % bearColors.length];
+                    svg += `
+                        <g transform="translate(${x}, ${y})">
+                            <circle cx="-4" cy="-6" r="2.5" fill="${col}" />
+                            <circle cx="4" cy="-6" r="2.5" fill="${col}" />
+                            <circle cx="0" cy="-2" r="5" fill="${col}" />
+                            <ellipse cx="0" cy="5" rx="5.5" ry="6" fill="${col}" />
+                        </g>
+                    `;
+                }
+            }
+
+            // (G) 棉花糖（1 - 5 粒）
+            if (toppings.marshmallows > 0) {
+                for (let i = 0; i < toppings.marshmallows; i++) {
+                    const { x, y } = fiveSlotCoords[i];
+                    svg += `
+                        <g transform="translate(${x}, ${y})">
+                            <rect x="-7" y="-6" width="14" height="12" rx="4" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.8" />
+                            <ellipse cx="0" cy="-5" rx="6" ry="2.2" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1" />
+                        </g>
+                    `;
+                }
+            }
+
+            // (H) M&Ms（1 - 5 粒）
+            if (toppings.mms > 0) {
+                const mmColors = ['#EF4444', '#3B82F6', '#FACC15', '#22C55E', '#F97316'];
+                for (let i = 0; i < toppings.mms; i++) {
+                    const { x, y } = fiveSlotCoords[i];
+                    const col = mmColors[i % mmColors.length];
+                    svg += `
+                        <g transform="translate(${x}, ${y})">
+                            <circle cx="0" cy="0" r="6.5" fill="${col}" stroke="#FFFFFF" stroke-width="1.2" />
+                            <text x="0" y="2.5" font-size="7.5" font-weight="900" fill="#FFFFFF" text-anchor="middle">m</text>
+                        </g>
+                    `;
+                }
+            }
+
+            // (I) 藍莓（1 - 5 粒）
+            if (toppings.blueberry > 0) {
+                for (let i = 0; i < toppings.blueberry; i++) {
+                    const { x, y } = fiveSlotCoords[i];
+                    svg += `
+                        <g transform="translate(${x}, ${y})">
+                            <circle cx="0" cy="0" r="6.5" fill="#3730A3" stroke="#1E1B4B" stroke-width="1.2" />
+                            <circle cx="-2" cy="-2" r="1.8" fill="#818CF8" />
+                            <path d="M-2,-5 L0,-3 L2,-5" fill="none" stroke="#A5B4FC" stroke-width="1.2" />
+                        </g>
+                    `;
+                }
+            }
+
+            // (J) 士多啤梨（1 - 5 粒）
+            if (toppings.strawberry > 0) {
+                for (let i = 0; i < toppings.strawberry; i++) {
+                    const { x, y } = fiveSlotCoords[i];
+                    svg += `
+                        <g transform="translate(${x}, ${y})">
+                            <path d="M-6,-3 Q0,-5 6,-3 Q5,6 0,8 Q-5,6 -6,-3 Z" fill="#F43F5E" stroke="#BE123C" stroke-width="1.2" />
+                            <path d="M-4,-4 L0,-2 L4,-4 L0,-6 Z" fill="#16A34A" />
+                        </g>
+                    `;
+                }
+            }
+
+            svg += `</svg>`;
+            return svg;
+        }
+
+        // ==========================================
+        // 12. 難度切換與初始化啟動遊戲
+        // ==========================================
+        function setDifficulty(level) {
+            gameState.difficulty = level;
+            gameState.orderCount = 0;
+            [1, 2, 3].forEach(d => {
+                const btn = document.getElementById(`diff-${d}`);
+                if (d === level) {
+                    btn.className = 'px-2.5 py-1 rounded-xl font-bold text-xs sm:text-sm bg-amber-400 text-amber-950 shadow-sm transition';
+                } else {
+                    btn.className = 'px-2.5 py-1 rounded-xl font-bold text-xs sm:text-sm text-amber-800 hover:bg-amber-100 transition';
+                }
+            });
+            generateNextOrder();
+        }
+
+        window.onload = function () {
+            renderToppingControls();
+            generateNextOrder();
+        };
+    </script>
+</body>
+</html>
